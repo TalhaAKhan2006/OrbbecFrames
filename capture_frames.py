@@ -13,12 +13,12 @@ from pyorbbecsdk import *
 
 OUTPUT_DIR = "frames"
 
-CAPTURE_TIME = 10          # seconds
-TARGET_FPS = 10             # frames per second
+CAPTURE_TIME = 10       # seconds
+TARGET_FPS = 10         # saved frames per second
 TOTAL_FRAMES = CAPTURE_TIME * TARGET_FPS
 
-COLOR_WIDTH = 1280
-COLOR_HEIGHT = 720
+COLOR_WIDTH = 640
+COLOR_HEIGHT = 480
 COLOR_FPS = 30
 
 
@@ -27,12 +27,20 @@ COLOR_FPS = 30
 # =========================
 
 if os.path.exists(OUTPUT_DIR):
+    print(f"Removing previous '{OUTPUT_DIR}' directory...")
     shutil.rmtree(OUTPUT_DIR)
 
 os.makedirs(OUTPUT_DIR)
 
-print(f"Output directory: {OUTPUT_DIR}")
-print(f"Capturing {TOTAL_FRAMES} frames at {TARGET_FPS} FPS...")
+print()
+print("Orbbec Gemini 335 Frame Capture")
+print("--------------------------------")
+print(f"Resolution:     {COLOR_WIDTH}x{COLOR_HEIGHT}")
+print(f"Camera FPS:     {COLOR_FPS}")
+print(f"Capture FPS:    {TARGET_FPS}")
+print(f"Duration:       {CAPTURE_TIME} seconds")
+print(f"Total frames:   {TOTAL_FRAMES}")
+print(f"Output folder:  {OUTPUT_DIR}")
 print()
 
 
@@ -43,8 +51,9 @@ print()
 pipeline = Pipeline()
 config = Config()
 
-# Enable color stream
-color_profiles = pipeline.get_stream_profile_list(OBSensorType.COLOR_SENSOR)
+color_profiles = pipeline.get_stream_profile_list(
+    OBSensorType.COLOR_SENSOR
+)
 
 color_profile = color_profiles.get_video_stream_profile(
     COLOR_WIDTH,
@@ -55,9 +64,12 @@ color_profile = color_profiles.get_video_stream_profile(
 
 config.enable_stream(color_profile)
 
+print("Starting camera...")
+
 pipeline.start(config)
 
 print("Camera started.")
+print()
 print("Beginning capture...")
 print()
 
@@ -76,7 +88,7 @@ try:
 
     while captured < TOTAL_FRAMES:
 
-        # Wait for a new frame
+        # Wait for a frame from the camera
         frames = pipeline.wait_for_frames(1000)
 
         if frames is None:
@@ -87,31 +99,33 @@ try:
         if color_frame is None:
             continue
 
-        # Convert Orbbec frame to NumPy array
+        # Convert camera data to NumPy array
         data = np.asarray(color_frame.get_data())
 
-        # RGB -> BGR for OpenCV
-        image = cv2.cvtColor(
-            data,
-            cv2.COLOR_RGB2BGR
-        )
+        # Convert RGB to BGR for OpenCV
+        image = cv2.cvtColor(data, cv2.COLOR_RGB2BGR)
 
-        # Save frame
+        # Generate filename
         filename = os.path.join(
             OUTPUT_DIR,
             f"frame_{captured + 1:04d}.jpg"
         )
 
-        cv2.imwrite(filename, image)
+        # Save image
+        success = cv2.imwrite(filename, image)
+
+        if not success:
+            print(f"ERROR: Could not save {filename}")
+            continue
 
         captured += 1
 
         print(
-            f"Captured {captured:03d}/{TOTAL_FRAMES}: "
-            f"{filename}"
+            f"Captured {captured:03d}/{TOTAL_FRAMES} "
+            f"-> {filename}"
         )
 
-        # Maintain approximately 10 FPS
+        # Schedule next capture
         next_capture_time += frame_interval
 
         sleep_time = next_capture_time - time.perf_counter()
@@ -124,5 +138,6 @@ finally:
     pipeline.stop()
 
     print()
-    print("Capture complete.")
-    print(f"Saved {captured} frames to '{OUTPUT_DIR}/'")
+    print("Camera stopped.")
+    print(f"Capture complete: {captured} frames saved.")
+    print(f"Images are located in: {OUTPUT_DIR}/")
