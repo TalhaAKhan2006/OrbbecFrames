@@ -1,7 +1,7 @@
 import cv2
 import time
 
-camera = cv2.VideoCapture(2)
+camera = cv2.VideoCapture(0)
 #camera.set(cv2.CAP_PROP_FPS, 60)
 if not camera.isOpened():
     raise RuntimeError("Could not detect a camera.")
@@ -28,7 +28,7 @@ while True:
 
     cv2.imshow("Camera", frame)
 
-    cv2.waitKey(1)
+    cv2.waitKey(100)
 
 camera.release()
 cv2.destroyAllWindows()
